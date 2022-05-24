@@ -917,40 +917,6 @@ struct hostent *gethostbyname(const char *name)
 
 }
 
-int co_gethostbyname_r(const char* __restrict name,
-                       struct hostent* __restrict __result_buf,
-                       char* __restrict __buf, size_t __buflen,
-                       struct hostent** __restrict __result,
-                       int* __restrict __h_errnop) {
-  static __thread clsCoMutex* tls_leaky_dns_lock = NULL; 
-  if(tls_leaky_dns_lock == NULL) {
-    tls_leaky_dns_lock = new clsCoMutex();
-  }
-  clsSmartLock auto_lock(tls_leaky_dns_lock);
-  return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,
-                                    __result, __h_errnop);
-}
-
-int gethostbyname_r(const char* __restrict name,
-                    struct hostent* __restrict __result_buf,
-                    char* __restrict __buf, size_t __buflen,
-                    struct hostent** __restrict __result,
-                    int* __restrict __h_errnop) {
-  HOOK_SYS_FUNC(gethostbyname_r);
-
-#if defined( __APPLE__ ) || defined( __FreeBSD__ )
-	return g_sys_gethostbyname_r_func( name );
-#else
-  if (!co_is_enable_sys_hook()) {
-    return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,
-                                      __result, __h_errnop);
-  }
-
-  return co_gethostbyname_r(name, __result_buf, __buf, __buflen, __result,
-                            __h_errnop);
-#endif
-}
-
 struct res_state_wrap
 {
 	struct __res_state state;
@@ -987,6 +953,36 @@ struct hostbuf_wrap
 CO_ROUTINE_SPECIFIC(hostbuf_wrap, __co_hostbuf_wrap);
 
 #if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
+int co_gethostbyname_r(const char* __restrict name,
+                       struct hostent* __restrict __result_buf,
+                       char* __restrict __buf, size_t __buflen,
+                       struct hostent** __restrict __result,
+                       int* __restrict __h_errnop) {
+  static __thread clsCoMutex* tls_leaky_dns_lock = NULL; 
+  if(tls_leaky_dns_lock == NULL) {
+    tls_leaky_dns_lock = new clsCoMutex();
+  }
+  clsSmartLock auto_lock(tls_leaky_dns_lock);
+  return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,
+                                    __result, __h_errnop);
+}
+
+int gethostbyname_r(const char* __restrict name,
+                    struct hostent* __restrict __result_buf,
+                    char* __restrict __buf, size_t __buflen,
+                    struct hostent** __restrict __result,
+                    int* __restrict __h_errnop) {
+  HOOK_SYS_FUNC(gethostbyname_r);
+
+  if (!co_is_enable_sys_hook()) {
+    return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,
+                                      __result, __h_errnop);
+  }
+
+  return co_gethostbyname_r(name, __result_buf, __buf, __buflen, __result,
+                            __h_errnop);
+}
+
 struct hostent *co_gethostbyname(const char *name)
 {
 	if (!name)
